@@ -1,7 +1,7 @@
 Para rodar o testes seguir o os passos a seguir
 
     1 - Na pasta raiz rodar o seguinte comando: docker build -t load-tester .
-    2 - Segundo o comando: docker run load-tester --url=http://google.com.br --requests=500 --concurrency=5
+    2 - Segundo o comando: docker run load-tester --url=https://www.amazon.com.br --requests=1 --concurrency=1
     3 - No final do comando acima, terá o relatorio do exercício solicitado
 
 

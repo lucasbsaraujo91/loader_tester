@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net/http"
@@ -36,6 +37,12 @@ func main() {
 	var totalRequests int
 	var mu sync.Mutex
 
+	// Configuração do cliente HTTP sem verificação de certificado
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Desabilitar a verificação do certificado
+	}
+	client := &http.Client{Transport: tr}
+
 	// Worker pool
 	wg := &sync.WaitGroup{}
 	sem := make(chan struct{}, *concurrency)
@@ -46,22 +53,39 @@ func main() {
 
 		go func(requestNum int) {
 			defer wg.Done()
-			resp, err := http.Get(*url)
 
-			mu.Lock()
-			defer mu.Unlock()
-
+			// Criar a requisição HTTP
+			req, err := http.NewRequest("GET", *url, nil)
 			if err != nil {
-				statusCounts[0]++ // 0 para erros
-				fmt.Printf("Request #%d: Erro de conexão\n", requestNum+1)
+				mu.Lock()
+				statusCounts[0]++ // erro de conexão
+				mu.Unlock()
+				fmt.Printf("Request #%d: Erro ao criar requisição: %v\n", requestNum+1, err)
+				return
+			}
+
+			// Adicionar cabeçalhos (User-Agent, por exemplo)
+			req.Header.Set("User-Agent", "LoadTester/1.0")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				mu.Lock()
+				statusCounts[0]++ // erro de conexão
+				mu.Unlock()
+				fmt.Printf("Request #%d: Erro de conexão: %v\n", requestNum+1, err)
 			} else {
+				mu.Lock()
 				statusCounts[resp.StatusCode]++
+				mu.Unlock()
 				fmt.Printf("Request #%d: Status %d\n", requestNum+1, resp.StatusCode)
 				resp.Body.Close()
 			}
 			totalRequests++
 
 			<-sem
+
+			// Adicionar um pequeno intervalo entre as requisições
+			time.Sleep(100 * time.Millisecond)
 		}(i)
 	}
 
